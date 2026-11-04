@@ -2,7 +2,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <memory>
 #include <cctype>
 #include <string>
 
@@ -17,7 +16,9 @@ int main(int argc, char** argv)
     long long local_A_count = 0;
     long long local_total_bases = 0;
     long long chunk_size = 0;
-    std::unique_ptr<char[]> buffer;
+    
+    // Reemplazo de std::unique_ptr por un puntero crudo
+    char* buffer = NULL;
 
     if (rank == 0)
     {
@@ -28,7 +29,7 @@ int main(int argc, char** argv)
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
 
-        // skipeamos el header antes qeu nada.
+        // skipeamos el header antes que nada.
         std::string header;
         std::getline(file, header);
         long long start_pos = file.tellg();
@@ -36,32 +37,39 @@ int main(int argc, char** argv)
         long long end_pos = file.tellg();
         long long data_size = end_pos - start_pos;
         file.seekg(start_pos, std::ios::beg);
+        
         long long base_chunk = data_size / size;
         long long remainder = data_size % size;
 
         chunk_size = base_chunk;
-        buffer.reset(new char[chunk_size]);
-        file.read(buffer.get(), chunk_size);
+        buffer = new char[chunk_size];
+        file.read(buffer, chunk_size);
 
         for (int p = 1; p < size; p++)
         {
             long long p_chunk = base_chunk + (p == size - 1 ? remainder : 0);
-            std::unique_ptr<char[]> temp_buffer(new char[p_chunk]);
+            
+            // Puntero temporal crudo en lugar de unique_ptr
+            char* temp_buffer = new char[p_chunk];
 
-            file.read(temp_buffer.get(), p_chunk);
+            file.read(temp_buffer, p_chunk);
             MPI_Send(&p_chunk, 1, MPI_LONG_LONG, p, 0, MPI_COMM_WORLD);
-            MPI_Send(temp_buffer.get(), p_chunk, MPI_CHAR, p, 1, MPI_COMM_WORLD);
+            MPI_Send(temp_buffer, p_chunk, MPI_CHAR, p, 1, MPI_COMM_WORLD);
+            
+            // Liberación manual indispensable tras enviar
+            delete[] temp_buffer;
         }
         file.close();
     }
     else
     {
         MPI_Recv(&chunk_size, 1, MPI_LONG_LONG, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        buffer.reset(new char[chunk_size]);
-        MPI_Recv(buffer.get(), chunk_size, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        buffer = new char[chunk_size];
+        MPI_Recv(buffer, chunk_size, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
-    for (long i = 0; i < chunk_size; i++)
+    // Cambiado de 'long' a 'long long' para evitar overflow en archivos gigantes
+    for (long long i = 0; i < chunk_size; i++)
     {
         char c = buffer[i];
 
@@ -102,6 +110,9 @@ int main(int argc, char** argv)
         MPI_Send(&local_A_count, 1, MPI_LONG_LONG, 0, 2, MPI_COMM_WORLD);
         MPI_Send(&local_total_bases, 1, MPI_LONG_LONG, 0, 3, MPI_COMM_WORLD);
     }
+
+    // Liberación estricta del buffer principal
+    delete[] buffer;
 
     MPI_Finalize();
     return 0;

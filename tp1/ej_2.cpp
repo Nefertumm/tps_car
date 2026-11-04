@@ -1,9 +1,9 @@
 #include <mpi.h>
 #include <iostream>
 #include <iomanip>
-#include <memory>
 #include <algorithm>
 #include <vector>
+#include <stdint.h> // Para uint8_t
 
 int main(int argc, char** argv)
 {
@@ -19,9 +19,12 @@ int main(int argc, char** argv)
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
-    constexpr int m_size = 1 << 24;
-    constexpr int N_iters = 10;
-    std::unique_ptr<uint8_t[]> buffer(new uint8_t[m_size]);
+    // Reemplazo de constexpr por const de C clásico
+    const int m_size = 1 << 24;
+    const int N_iters = 10;
+    
+    // Puntero crudo con new
+    uint8_t* buffer = new uint8_t[m_size];
 
     std::vector<double> local_row(size, 0.0);
 
@@ -40,18 +43,20 @@ int main(int argc, char** argv)
 
                 if (rank == i)
                 {
-                    MPI_Send(buffer.get(), m_size, MPI_BYTE, j, 0, MPI_COMM_WORLD);
-                    MPI_Recv(buffer.get(), m_size, MPI_BYTE, j, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Send(buffer, m_size, MPI_BYTE, j, 0, MPI_COMM_WORLD);
+                    MPI_Recv(buffer, m_size, MPI_BYTE, j, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 }
                 else if (rank == j)
                 {
-                    MPI_Recv(buffer.get(), m_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    MPI_Send(buffer.get(), m_size, MPI_BYTE, i, 0, MPI_COMM_WORLD);
+                    MPI_Recv(buffer, m_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Send(buffer, m_size, MPI_BYTE, i, 0, MPI_COMM_WORLD);
                 }
 
                 double t_end = MPI_Wtime();
                 if (k >= 0 && rank == i)
-                    sum_times += (t_end - t_start) / 2.0; // divido por 2 porque es ida y vuelta...
+                {
+                    sum_times += (t_end - t_start) / 2.0; 
+                }
             }
             if (rank == i)
             {
@@ -62,18 +67,25 @@ int main(int argc, char** argv)
         }
     }
 
-    std::unique_ptr<double[]> full_matrix;
+    // Puntero crudo para la matriz completa
+    double* full_matrix = NULL;
+    
     if (rank == 0)
     {
-        full_matrix.reset(new double[size * size]);
+        full_matrix = new double[size * size];
 
-        std::copy(local_row.begin(), local_row.end(), full_matrix.get()); // "pegamos" la local_row de master en la matriz
+        std::copy(local_row.begin(), local_row.end(), full_matrix); 
 
         for (int k = 1; k < size; k++)
+        {
             MPI_Recv(&full_matrix[k * size], size, MPI_DOUBLE, k, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
     }
     else
-        MPI_Send(local_row.data(), size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+    {
+        // En C++98/03 se usa &vector[0] en lugar de vector.data()
+        MPI_Send(&local_row[0], size, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+    }
 
     if (rank == 0)
     {
@@ -86,6 +98,13 @@ int main(int argc, char** argv)
             }
             std::cout << std::endl;
         }
+    }
+
+    // Liberación estricta de memoria antes de finalizar
+    delete[] buffer;
+    if (rank == 0)
+    {
+        delete[] full_matrix;
     }
 
     MPI_Finalize();

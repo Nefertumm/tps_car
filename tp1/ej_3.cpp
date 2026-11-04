@@ -1,6 +1,7 @@
 #include <mpi.h>
 #include <iostream>
-#include <memory>
+#include <algorithm> // Para std::max
+#include <stdint.h>  // Para uint8_t en compiladores antiguos
 
 int main(int argc, char** argv)
 {
@@ -13,15 +14,20 @@ int main(int argc, char** argv)
     if (size < 2 || size % 2 != 0)
     {
         if (rank == 0)
+        {
             std::cerr << "Se requieren al menos 2 procesos y un número par de procesos" << std::endl;
+        }
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
-    constexpr int m_size = 1 << 24;
-    constexpr int N_iters = 10;
+    // Reemplazo de constexpr por const de C++98
+    const int m_size = 1 << 24;
+    const int N_iters = 10;
 
     int half_size = size / 2;
-    std::unique_ptr<uint8_t[]> buffer(new uint8_t[m_size]);
+    
+    // Reemplazo de std::unique_ptr por puntero crudo
+    uint8_t* buffer = new uint8_t[m_size];
 
     double total_max_time = 0.0;
 
@@ -34,12 +40,12 @@ int main(int argc, char** argv)
         if (rank < half_size)
         {
             int dest = rank + half_size;
-            MPI_Send(buffer.get(), m_size, MPI_BYTE, dest, 0, MPI_COMM_WORLD);
+            MPI_Send(buffer, m_size, MPI_BYTE, dest, 0, MPI_COMM_WORLD);
         }
         else
         {
             int src = rank - half_size;
-            MPI_Recv(buffer.get(), m_size, MPI_BYTE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(buffer, m_size, MPI_BYTE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
         double t_end = MPI_Wtime();
@@ -61,7 +67,9 @@ int main(int argc, char** argv)
         }
 
         if (k >= 0)
+        {
             total_max_time += max_time;
+        }
     }
 
     if (rank == 0)
@@ -74,8 +82,11 @@ int main(int argc, char** argv)
         double bisection_bw_Mbps = bisection_bw_bytes * 8.0 / 1e6;
 
         std::cout << "Procesadores (n): " << size << std::endl;
-        std::cout << "Ancho de banda de disección: " << bisection_bw_Mbs << " MB/s (" << bisection_bw_Mbps << " Mbps)" << std::endl;
+        std::cout << "Ancho de banda de bisección: " << bisection_bw_Mbs << " MB/s (" << bisection_bw_Mbps << " Mbps)" << std::endl;
     }
+
+    // Liberación estricta de memoria antes de finalizar
+    delete[] buffer;
 
     MPI_Finalize();
     return 0;
