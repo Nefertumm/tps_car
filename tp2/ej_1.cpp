@@ -2,13 +2,10 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <cstdint>
 
-void mybcast_tree(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
+void mybcast_tree(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, int& rank, int& size)
 {
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-
     int mask = 1;
     while (mask < size)
         mask <<= 1;
@@ -34,12 +31,8 @@ void mybcast_tree(void* buffer, int count, MPI_Datatype datatype, int root, MPI_
     }
 }
 
-void mybcast_sequential(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
+void mybcast_sequential(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, int& rank, int& size)
 {
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-
     if (rank == root)
     {
         for (int i = 0; i < size; i++)
@@ -61,8 +54,8 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 
-    int count = 1024 * 1024;
-    std::unique_ptr<int[]> buffer(new int[count]);
+    int count = 1 << 29;
+    std::unique_ptr<uint8_t[]> buffer(new uint8_t[count]);
     constexpr int N_iters = 10;
 
     double t_start, t_end, local_time, max_time;
@@ -71,8 +64,8 @@ int main(int argc, char** argv) {
         std::fill(buffer.get(), buffer.get() + count, 42);
 
     // warmup previo (no sé si está bien, pero me hace sentido siguiendo el hilo de los ejercicios que hemos hecho)
-    mybcast_sequential(buffer.get(), count, MPI_INT, 0, MPI_COMM_WORLD);
-    mybcast_tree(buffer.get(), count, MPI_INT, 0, MPI_COMM_WORLD);
+    mybcast_sequential(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
+    mybcast_tree(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
     MPI_Barrier(MPI_COMM_WORLD);
 
     double total_seq_time = 0.0;
@@ -81,7 +74,7 @@ int main(int argc, char** argv) {
     {
         MPI_Barrier(MPI_COMM_WORLD);
         t_start = MPI_Wtime();
-        mybcast_sequential(buffer.get(), count, MPI_INT, 0, MPI_COMM_WORLD);
+        mybcast_sequential(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
         t_end = MPI_Wtime();
         local_time = t_end - t_start;
         MPI_Reduce(&local_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -95,7 +88,7 @@ int main(int argc, char** argv) {
     {
         MPI_Barrier(MPI_COMM_WORLD);
         t_start = MPI_Wtime();
-        mybcast_tree(buffer.get(), count, MPI_INT, 0, MPI_COMM_WORLD);
+        mybcast_tree(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
         t_end = MPI_Wtime();
         local_time = t_end - t_start;
         MPI_Reduce(&local_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
