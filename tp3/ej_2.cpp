@@ -33,21 +33,21 @@ void test_prime_schedule(long long max_num, int num_cores, char schedule_type, d
     if (schedule_type == 's')
     {
         schedule_name = "static";
-        #pragma omp parallel for reduction(+:global_primes) schedule(static)
+        #pragma omp parallel for reduction(+:global_primes) schedule(static) default(none) shared(max_num)
         for (long long i = 2; i <= max_num; i++)
             if (is_prime(i)) global_primes++;
     }
     else if (schedule_type == 'd')
     {
         schedule_name = "dynamic";
-        #pragma omp parallel for reduction(+:global_primes) schedule(dynamic)
+        #pragma omp parallel for reduction(+:global_primes) schedule(dynamic) default(none) shared(max_num)
         for (long long i = 2; i <= max_num; i++)
             if (is_prime(i)) global_primes++;
     }
     else if (schedule_type == 'g')
     {
         schedule_name = "guided";
-        #pragma omp parallel for reduction(+:global_primes) schedule(guided)
+        #pragma omp parallel for reduction(+:global_primes) schedule(guided) default(none) shared(max_num)
         for (long long i = 2; i <= max_num; i++)
             if (is_prime(i)) global_primes++;
     }

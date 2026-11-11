@@ -65,22 +65,22 @@ int main()
     double step = 1.0 / static_cast<double>(num_steps);
     double t_seq, pi_seq;
     calc_pi(num_steps, step, 1, t_seq, pi_seq, 'r');
-    std::cout << "Sequential: time = " << t_seq << ", pi = " << std::setprecision(10) << pi_seq << "s" << std::endl;
+    std::cout << "Sequential: time = " << t_seq << "s, pi = " << std::setprecision(10) << pi_seq << std::endl;
     for (int cores : num_cores)
     {
         double t_par, pi_par;
         calc_pi(num_steps, step, cores, t_par, pi_par, 'r');
         double speedup = t_seq / t_par;
         double efficiency = speedup / cores * 100.0;
-        std::cout << "Parallel (" << cores << " cores, reduction): time = " << t_par << "s, pi = " << std::setprecision(10) << pi_par << ", speedup = " << speedup << ", efficiency = " << std::setprecision(4) << efficiency << "%" << std::endl;
+        std::cout << "Parallel (" << cores << " cores, reduction): time = " << std::setprecision(6) << t_par << "s, pi = " << std::setprecision(10) << pi_par << ", speedup = " << std::setprecision(4) << speedup << ", efficiency = " << std::setprecision(4) << efficiency << "%" << std::endl;
         calc_pi(num_steps, step, cores, t_par, pi_par, 'c');
         speedup = t_seq / t_par;
         efficiency = speedup / cores * 100.0;
-        std::cout << "Parallel (" << cores << " cores, critical): time = " << t_par << "s, pi = " << std::setprecision(10) << pi_par << ", speedup = " << speedup << ", efficiency = " << std::setprecision(4) << efficiency << "%" << std::endl;
+        std::cout << "Parallel (" << cores << " cores, critical): time = " << std::setprecision(6) << t_par << "s, pi = " << std::setprecision(10) << pi_par << ", speedup = " << std::setprecision(4) << speedup << ", efficiency = " << std::setprecision(4) << efficiency << "%" << std::endl;
         calc_pi(num_steps, step, cores, t_par, pi_par, 'o');
         speedup = t_seq / t_par;
         efficiency = speedup / cores * 100.0;
-        std::cout << "Parallel (" << cores << " cores, ordered): time = " << t_par << "s, pi = " << std::setprecision(10) << pi_par << ", speedup = " << speedup << ", efficiency = " << std::setprecision(4) << efficiency << "%" << std::endl;
+        std::cout << "Parallel (" << cores << " cores, ordered): time = " << std::setprecision(6) << t_par << "s, pi = " << std::setprecision(10) << pi_par << ", speedup = " << std::setprecision(4) << speedup << ", efficiency = " << std::setprecision(4) << efficiency << "%" << std::endl;
     }
     return 0;
 }

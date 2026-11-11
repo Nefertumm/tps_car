@@ -21,7 +21,7 @@ void sum_columns(std::vector<double> const& matriz, long long N, double& suma)
 
 int main()
 {
-    constexpr long long N = 50000;
+    constexpr long long N = 100000;
     std::vector<double> matrix(N * N, 1.0);
 
     double sum_local = 0.0;
