@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     long long local_A_count = 0;
     long long local_total_bases = 0;
     long long chunk_size = 0;
-    
+
     // Reemplazo de std::unique_ptr por un puntero crudo
     char* buffer = NULL;
 
@@ -37,7 +37,7 @@ int main(int argc, char** argv)
         long long end_pos = file.tellg();
         long long data_size = end_pos - start_pos;
         file.seekg(start_pos, std::ios::beg);
-        
+
         long long base_chunk = data_size / size;
         long long remainder = data_size % size;
 
@@ -48,14 +48,14 @@ int main(int argc, char** argv)
         for (int p = 1; p < size; p++)
         {
             long long p_chunk = base_chunk + (p == size - 1 ? remainder : 0);
-            
+
             // Puntero temporal crudo en lugar de unique_ptr
             char* temp_buffer = new char[p_chunk];
 
             file.read(temp_buffer, p_chunk);
             MPI_Send(&p_chunk, 1, MPI_LONG_LONG, p, 0, MPI_COMM_WORLD);
             MPI_Send(temp_buffer, p_chunk, MPI_CHAR, p, 1, MPI_COMM_WORLD);
-            
+
             // Liberación manual indispensable tras enviar
             delete[] temp_buffer;
         }

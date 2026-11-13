@@ -35,26 +35,26 @@ int main(int argc, char** argv)
     {
         int m_size = message_sizes[s];
         double sum_times = 0.0;
-        
+
         for (int i = -1; i < N; i++)
         {
             double t_start = MPI_Wtime();
-            
-            if (rank == 0) 
+
+            if (rank == 0)
             {
                 MPI_Send(buffer, m_size, MPI_BYTE, 1, 0, MPI_COMM_WORLD);
                 MPI_Recv(buffer, m_size, MPI_BYTE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
-            else if (rank == 1) 
+            else if (rank == 1)
             {
                 MPI_Recv(buffer, m_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 MPI_Send(buffer, m_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
             }
-            
+
             double t_end = MPI_Wtime();
-            double t_comm = (t_end - t_start) / 2.0; 
-            
-            if (i >= 0 && rank == 0) 
+            double t_comm = (t_end - t_start) / 2.0;
+
+            if (i >= 0 && rank == 0)
             {
                 sum_times += t_comm;
             }

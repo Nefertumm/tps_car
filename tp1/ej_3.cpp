@@ -25,7 +25,7 @@ int main(int argc, char** argv)
     const int N_iters = 10;
 
     int half_size = size / 2;
-    
+
     // Reemplazo de std::unique_ptr por puntero crudo
     uint8_t* buffer = new uint8_t[m_size];
 

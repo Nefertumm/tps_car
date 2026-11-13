@@ -22,7 +22,7 @@ int main(int argc, char** argv)
     // Reemplazo de constexpr por const de C clásico
     const int m_size = 1 << 24;
     const int N_iters = 10;
-    
+
     // Puntero crudo con new
     uint8_t* buffer = new uint8_t[m_size];
 
@@ -55,7 +55,7 @@ int main(int argc, char** argv)
                 double t_end = MPI_Wtime();
                 if (k >= 0 && rank == i)
                 {
-                    sum_times += (t_end - t_start) / 2.0; 
+                    sum_times += (t_end - t_start) / 2.0;
                 }
             }
             if (rank == i)
@@ -69,12 +69,12 @@ int main(int argc, char** argv)
 
     // Puntero crudo para la matriz completa
     double* full_matrix = NULL;
-    
+
     if (rank == 0)
     {
         full_matrix = new double[size * size];
 
-        std::copy(local_row.begin(), local_row.end(), full_matrix); 
+        std::copy(local_row.begin(), local_row.end(), full_matrix);
 
         for (int k = 1; k < size; k++)
         {
