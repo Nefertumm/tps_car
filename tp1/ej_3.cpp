@@ -1,6 +1,6 @@
 #include <mpi.h>
 #include <iostream>
-#include <algorithm> // Para std::max
+#include <algorithm>
 #include <stdint.h>  // Para uint8_t en compiladores antiguos
 
 int main(int argc, char** argv)
