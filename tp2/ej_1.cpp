@@ -1,11 +1,16 @@
 #include <mpi.h>
 #include <iostream>
-#include <memory>
 #include <algorithm>
-#include <cstdint>
+#include <stdint.h> // C++98 en lugar de <cstdint>
 
-void mybcast_tree(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, int& rank, int& size)
+int mybcast_tree(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
 {
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
+    int vrank = (rank - root + size) % size;
+
     int mask = 1;
     while (mask < size)
         mask <<= 1;
@@ -16,23 +21,32 @@ void mybcast_tree(void* buffer, int count, MPI_Datatype datatype, int root, MPI_
     {
         int chunk = mask << 1;
 
-        if (rank % chunk == 0)
+        if (vrank % chunk == 0)
         {
-            int dest = rank + mask;
-            if (dest < size)
+            int vdest = vrank + mask;
+            if (vdest < size)
+            {
+                int dest = (vdest + root) % size;
                 MPI_Send(buffer, count, datatype, dest, 0, comm);
+            }
         }
-
-        else if (rank % chunk == mask)
+        else if (vrank % chunk == mask)
         {
-            int src = rank - mask;
+            int vsrc = vrank - mask;
+            int src = (vsrc + root) % size;
             MPI_Recv(buffer, count, datatype, src, 0, comm, MPI_STATUS_IGNORE);
         }
     }
+
+    return MPI_SUCCESS;
 }
 
-void mybcast_sequential(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm, int& rank, int& size)
+int mybcast_sequential(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
 {
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
     if (rank == root)
     {
         for (int i = 0; i < size; i++)
@@ -42,39 +56,43 @@ void mybcast_sequential(void* buffer, int count, MPI_Datatype datatype, int root
         }
     }
     else
+    {
         MPI_Recv(buffer, count, datatype, root, 0, comm, MPI_STATUS_IGNORE);
+    }
+
+    return MPI_SUCCESS;
 }
 
-
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     MPI_Init(&argc, &argv);
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    const int count = 1 << 24;
+    const int N_iters = 10;
 
-    int count = 1 << 29;
-    std::unique_ptr<uint8_t[]> buffer(new uint8_t[count]);
-    constexpr int N_iters = 10;
+    uint8_t* buffer = new uint8_t[count];
 
     double t_start, t_end, local_time, max_time;
 
     if (rank == 0)
-        std::fill(buffer.get(), buffer.get() + count, 42);
+        std::fill(buffer, buffer + count, 42);
 
-    // warmup previo (no sé si está bien, pero me hace sentido siguiendo el hilo de los ejercicios que hemos hecho)
-    mybcast_sequential(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
-    mybcast_tree(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
+    // Warmup previo
+    mybcast_sequential(buffer, count, MPI_BYTE, 0, MPI_COMM_WORLD);
+    mybcast_tree(buffer, count, MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
-    double total_seq_time = 0.0;
     // Parte secuencial
+    double total_seq_time = 0.0;
     for (int iter = 0; iter < N_iters; iter++)
     {
         MPI_Barrier(MPI_COMM_WORLD);
         t_start = MPI_Wtime();
-        mybcast_sequential(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
+        mybcast_sequential(buffer, count, MPI_BYTE, 0, MPI_COMM_WORLD);
         t_end = MPI_Wtime();
         local_time = t_end - t_start;
         MPI_Reduce(&local_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -88,7 +106,7 @@ int main(int argc, char** argv) {
     {
         MPI_Barrier(MPI_COMM_WORLD);
         t_start = MPI_Wtime();
-        mybcast_tree(buffer.get(), count, MPI_BYTE, 0, MPI_COMM_WORLD, rank, size);
+        mybcast_tree(buffer, count, MPI_BYTE, 0, MPI_COMM_WORLD);
         t_end = MPI_Wtime();
         local_time = t_end - t_start;
         MPI_Reduce(&local_time, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -100,10 +118,10 @@ int main(int argc, char** argv) {
     {
         std::cout << "Procesadores: " << size << "\n";
         std::cout << "Tiempo secuencial (avg): " << (total_seq_time / N_iters) * 1000.0 << " ms\n";
-        std::cout << "Tiempo en árbol (avg): " << (total_tree_time / N_iters) * 1000.0 << " ms\n";
+        std::cout << "Tiempo en arbol (avg): " << (total_tree_time / N_iters) * 1000.0 << " ms\n";
     }
 
+    delete[] buffer;
     MPI_Finalize();
-
     return 0;
 }
