@@ -1,7 +1,6 @@
 #include <mpi.h>
 #include <iostream>
 #include <cmath>
-#include <memory>
 
 bool is_prime(int n)
 {
@@ -9,7 +8,7 @@ bool is_prime(int n)
     if (n == 2 || n == 3) return true;
     if (n % 2 == 0) return false;
 
-    int limit = std::sqrt(n);
+    int limit = static_cast<int>(std::sqrt(n));
     for (int i = 3; i <= limit; i += 2)
         if (n % i == 0) return false;
     return true;
@@ -30,16 +29,16 @@ int main(int argc, char** argv)
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
-    int max_num = 1e7;
-    int partitions[] = {1000, 10000, 100000, 1000000, 2000000};
+    const int max_num = 10000000;
+    const int partitions[5] = {1000, 10000, 100000, 1000000, 2000000};
 
-    std::unique_ptr<double[]> all_calc_times;
-    std::unique_ptr<double[]> all_comm_times;
+    double* all_calc_times = NULL;
+    double* all_comm_times = NULL;
 
     if (rank == 0)
     {
-        all_calc_times.reset(new double[size]);
-        all_comm_times.reset(new double[size]);
+        all_calc_times = new double[size];
+        all_comm_times = new double[size];
         std::cout << "Analizando primos hasta " << max_num << "...\n";
     }
 
@@ -70,14 +69,16 @@ int main(int argc, char** argv)
 
         double t_start_comm = MPI_Wtime();
 
+        // Barrier para capturar correctamente el tiempo de espera/sincronización por desbalance
+        MPI_Barrier(MPI_COMM_WORLD);
         int global_primes = 0;
         MPI_Reduce(&local_primes, &global_primes, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
         double t_end_comm = MPI_Wtime();
         double comm_time = t_end_comm - t_start_comm;
 
-        MPI_Gather(&calc_time, 1, MPI_DOUBLE, all_calc_times.get(), 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Gather(&comm_time, 1, MPI_DOUBLE, all_comm_times.get(), 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(&calc_time, 1, MPI_DOUBLE, all_calc_times, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(&comm_time, 1, MPI_DOUBLE, all_comm_times, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         if (rank == 0)
         {
@@ -89,6 +90,12 @@ int main(int argc, char** argv)
                           << "s | Sync/Comm: " << all_comm_times[i] << "s\n";
             }
         }
+    }
+
+    if (rank == 0)
+    {
+        delete[] all_calc_times;
+        delete[] all_comm_times;
     }
 
     MPI_Finalize();
